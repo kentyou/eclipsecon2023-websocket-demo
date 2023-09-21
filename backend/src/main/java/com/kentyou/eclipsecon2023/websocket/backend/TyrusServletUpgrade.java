@@ -148,10 +148,12 @@ public class TyrusServletUpgrade {
         if (header != null) {
             LOGGER.fine("Setting up WebSocket protocol handler");
 
+            // TODO: check why they use a proxy
             final TyrusHttpUpgradeHandlerProxy handler = new TyrusHttpUpgradeHandlerProxy();
 
             final Map<String, String[]> paramMap = httpServletRequest.getParameterMap();
 
+            // TODO: replace need for handler by direct access to connection
             final TyrusServletWriter webSocketConnection = new TyrusServletWriter(handler);
 
             final RequestContext requestContext = RequestContext.Builder.create()
@@ -201,6 +203,14 @@ public class TyrusServletUpgrade {
             case SUCCESS:
                 LOGGER.fine("Upgrading Servlet request");
 
+                handler.preInit(upgradeInfo, webSocketConnection, httpServletRequest.getUserPrincipal() != null);
+
+                httpServletResponse.setStatus(tyrusUpgradeResponse.getStatus());
+                for (Map.Entry<String, List<String>> entry : tyrusUpgradeResponse.getHeaders().entrySet()) {
+                    httpServletResponse.addHeader(entry.getKey(), Utils.getHeaderFromList(entry.getValue()));
+                }
+
+                // FIXME
                 handler.setHandler(httpServletRequest.upgrade(TyrusHttpUpgradeHandler.class));
                 final String frameBufferSize = httpServletRequest.getServletContext()
                         .getInitParameter(TyrusHttpUpgradeHandler.FRAME_BUFFER_SIZE);
@@ -208,15 +218,8 @@ public class TyrusServletUpgrade {
                     handler.setIncomingBufferSize(Integer.parseInt(frameBufferSize));
                 }
 
-                handler.preInit(upgradeInfo, webSocketConnection, httpServletRequest.getUserPrincipal() != null);
-
                 if (requestContext.getHttpSession() != null) {
                     sessionToHandler.put((HttpSession) requestContext.getHttpSession(), handler);
-                }
-
-                httpServletResponse.setStatus(tyrusUpgradeResponse.getStatus());
-                for (Map.Entry<String, List<String>> entry : tyrusUpgradeResponse.getHeaders().entrySet()) {
-                    httpServletResponse.addHeader(entry.getKey(), Utils.getHeaderFromList(entry.getValue()));
                 }
 
                 httpServletResponse.flushBuffer();

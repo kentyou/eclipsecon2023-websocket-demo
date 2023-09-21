@@ -30,27 +30,33 @@ import org.osgi.service.component.annotations.ServiceScope;
 import org.osgi.service.http.whiteboard.annotations.RequireHttpWhiteboard;
 import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardFilterAsyncSupported;
 import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardFilterPattern;
+import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardServletPattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.Servlet;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.websocket.DeploymentException;
 import jakarta.websocket.server.ServerContainer;
 import jakarta.websocket.server.ServerEndpoint;
 
-@Component(service = { Filter.class }, scope = ServiceScope.PROTOTYPE)
+@Component(service = { Filter.class, Servlet.class }, scope = ServiceScope.PROTOTYPE)
 @RequireHttpWhiteboard
+@HttpWhiteboardServletPattern("/ws/*")
 @HttpWhiteboardFilterPattern("/ws/*")
 @HttpWhiteboardFilterAsyncSupported
-public class WebSocketRegistrar implements Filter {
+public class WebSocketRegistrar extends HttpServlet implements Filter {
+
+    private static final long serialVersionUID = 1L;
 
     private static final Logger logger = LoggerFactory.getLogger(WebSocketRegistrar.class);
 
@@ -131,12 +137,18 @@ public class WebSocketRegistrar implements Filter {
 
         final HttpServletRequest httpServletRequest = (HttpServletRequest) request;
         final HttpServletResponse httpServletResponse = (HttpServletResponse) response;
+        try {
+            httpServletResponse.setStatus(101);
         boolean success = serverContainer.getServletUpgrade().upgrade(httpServletRequest, httpServletResponse);
 
         System.out.println("DO FILTER - success=" + success);
 
         if (!success && chain != null) {
             chain.doFilter(request, response);
+        }
+        } catch (Throwable e) {
+            httpServletResponse.setStatus(500);
+            e.printStackTrace();
         }
     }
 }
