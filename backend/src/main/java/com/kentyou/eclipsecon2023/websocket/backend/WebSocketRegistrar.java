@@ -13,26 +13,50 @@
 package com.kentyou.eclipsecon2023.websocket.backend;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
-import org.eclipse.jetty.websocket.server.JettyWebSocketServlet;
-import org.eclipse.jetty.websocket.server.JettyWebSocketServletFactory;
+import org.glassfish.tyrus.core.TyrusServerEndpointConfigurator;
+import org.osgi.service.component.AnyService;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
+import org.osgi.service.component.annotations.ServiceScope;
 import org.osgi.service.http.whiteboard.annotations.RequireHttpWhiteboard;
+import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardFilterAsyncSupported;
+import org.osgi.service.http.whiteboard.propertytypes.HttpWhiteboardFilterPattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.Servlet;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.websocket.DeploymentException;
+import jakarta.websocket.server.ServerContainer;
+import jakarta.websocket.server.ServerEndpoint;
 
-@Component(service = { Servlet.class, Filter.class })
+@Component(service = { Filter.class }, scope = ServiceScope.PROTOTYPE)
 @RequireHttpWhiteboard
-public class WebSocketRegistrar extends JettyWebSocketServlet implements Filter {
+@HttpWhiteboardFilterPattern("/ws/*")
+@HttpWhiteboardFilterAsyncSupported
+public class WebSocketRegistrar implements Filter {
 
-    private static final long serialVersionUID = 1L;
+    private static final Logger logger = LoggerFactory.getLogger(WebSocketRegistrar.class);
+
+    private WSServerContainer serverContainer;
+
+    private List<Class<?>> webSocketEndpoints = new ArrayList<>();
 
     @Activate
     void activate() {
@@ -42,22 +66,77 @@ public class WebSocketRegistrar extends JettyWebSocketServlet implements Filter 
     @Deactivate
     void stop() {
         // TODO Close all web sockets
+        webSocketEndpoints.clear();
+
+        if (serverContainer != null) {
+            serverContainer.stop();
+            serverContainer = null;
+        }
+    }
+
+    /**
+     * New websocket service registered
+     */
+    @Reference(service = AnyService.class, target = "(websocket.server=*)", cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY)
+    void addServerEndpoint(final Object endpoint, final Map<String, Object> properties) {
+        if (endpoint.getClass().getAnnotation(ServerEndpoint.class) != null) {
+            final Class<?> clazz = endpoint.getClass();
+            if (!webSocketEndpoints.contains(clazz)) {
+                System.out.println("Adding server endpoint - " + endpoint.getClass().getName());
+                webSocketEndpoints.add(clazz);
+            }
+        } else {
+            System.out.println("No annotation found on " + endpoint.getClass().getName());
+            logger.warn("Found a websocket service that isn't annotated. Ignoring it.");
+        }
     }
 
     @Override
-    public void init() throws ServletException {
-        // Block the default initialization
-    }
+    public void init(FilterConfig filterConfig) throws ServletException {
+        // TODO Auto-generated method stub
+        Filter.super.init(filterConfig);
 
-    @Override
-    protected void configure(JettyWebSocketServletFactory factory) {
-        // TODO: set the WebSocket session pool using with factory.setCreator
+        final ServletContext context = filterConfig.getServletContext();
+        serverContainer = new WSServerContainer(context.getContextPath());
+
+        ClassLoader old = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(TyrusServerEndpointConfigurator.class.getClassLoader());
+            for (final Class<?> clazz : webSocketEndpoints) {
+                try {
+                    serverContainer.register(clazz);
+                } catch (DeploymentException e) {
+                    logger.error("Error register WebSocket server endpoint class {}: {}", clazz.getName(),
+                            e.getMessage(), e);
+                }
+            }
+        } finally {
+            Thread.currentThread().setContextClassLoader(old);
+        }
+
+        try {
+            serverContainer.start(context.getContextPath(), 0);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new ServletException(e);
+        }
+
+        context.setAttribute(ServerContainer.class.getName(), serverContainer);
     }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        // TODO Auto-generated method stub
+        System.out.println("DO FILTER");
 
+        final HttpServletRequest httpServletRequest = (HttpServletRequest) request;
+        final HttpServletResponse httpServletResponse = (HttpServletResponse) response;
+        boolean success = serverContainer.getServletUpgrade().upgrade(httpServletRequest, httpServletResponse);
+
+        System.out.println("DO FILTER - success=" + success);
+
+        if (!success && chain != null) {
+            chain.doFilter(request, response);
+        }
     }
 }

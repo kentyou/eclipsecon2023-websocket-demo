@@ -13,8 +13,13 @@
 package com.kentyou.eclipsecon2023.websocket.backend.integration;
 
 import org.junit.jupiter.api.Test;
+import org.osgi.service.http.runtime.HttpServiceRuntime;
+import org.osgi.test.common.annotation.InjectService;
 
 public class WebSocketIntegrationTest {
+
+    @InjectService
+    HttpServiceRuntime http;
 
     @Test
     void test() throws Exception {

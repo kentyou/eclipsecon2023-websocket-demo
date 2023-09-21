@@ -12,15 +12,21 @@
 **********************************************************************/
 package com.kentyou.eclipsecon2023.websocket.backend;
 
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
 
-@ServerEndpoint("/test")
-@Component(service = WebSocketTest.class, immediate = true)
+@ServerEndpoint("/ws/test")
+@Component(service = WebSocketTest.class, immediate = true, property = { "websocket.server=true" })
 public class WebSocketTest {
+
+    @Activate
+    void activate() {
+        System.out.println("WebSocket test started");
+    }
 
     @OnMessage
     public void onMessage(String message, Session session) throws Exception {
