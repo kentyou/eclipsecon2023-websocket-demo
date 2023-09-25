@@ -23,18 +23,16 @@ import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import jakarta.websocket.CloseReason;
+import org.glassfish.tyrus.core.CloseReasons;
+import org.glassfish.tyrus.spi.Connection;
+import org.glassfish.tyrus.spi.WebSocketEngine;
 
 import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpUpgradeHandler;
 import jakarta.servlet.http.WebConnection;
-
-import org.glassfish.tyrus.core.CloseReasons;
-import org.glassfish.tyrus.spi.Connection;
-import org.glassfish.tyrus.spi.WebSocketEngine;
-import org.glassfish.tyrus.spi.Writer;
+import jakarta.websocket.CloseReason;
 
 /**
  * {@link HttpUpgradeHandler} and {@link ReadListener} implementation.
@@ -61,9 +59,6 @@ public class TyrusHttpUpgradeHandler implements HttpUpgradeHandler, ReadListener
     private static final Logger LOGGER = Logger.getLogger(TyrusHttpUpgradeHandler.class.getName());
 
     private Connection connection;
-    private WebSocketEngine.UpgradeInfo upgradeInfo;
-    private Writer writer;
-
 
     private boolean authenticated = false;
 
@@ -83,8 +78,14 @@ public class TyrusHttpUpgradeHandler implements HttpUpgradeHandler, ReadListener
         } catch (IllegalStateException e) {
             LOGGER.log(Level.WARNING, e.getMessage(), e);
         }
+    }
 
-        connection = upgradeInfo.createConnection(writer, new Connection.CloseListener() {
+    public void setAuthenticated(boolean authenticated) {
+        this.authenticated = authenticated;
+    }
+
+    public void upgradeConnection(WebSocketEngine.UpgradeInfo upgradeInfo) {
+        connection = upgradeInfo.createConnection(new TyrusServletWriter(wc), new Connection.CloseListener() {
             @Override
             public void close(CloseReason reason) {
                 try {
@@ -96,12 +97,6 @@ public class TyrusHttpUpgradeHandler implements HttpUpgradeHandler, ReadListener
         });
 
         connectionLatch.countDown();
-    }
-
-    public void preInit(WebSocketEngine.UpgradeInfo upgradeInfo, Writer writer, boolean authenticated) {
-        this.upgradeInfo = upgradeInfo;
-        this.writer = writer;
-        this.authenticated = authenticated;
     }
 
     @Override

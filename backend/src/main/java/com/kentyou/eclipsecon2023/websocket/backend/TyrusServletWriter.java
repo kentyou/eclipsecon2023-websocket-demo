@@ -23,11 +23,12 @@ import java.util.LinkedList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import jakarta.servlet.ServletOutputStream;
-import jakarta.servlet.WriteListener;
-
 import org.glassfish.tyrus.spi.CompletionHandler;
 import org.glassfish.tyrus.spi.Writer;
+
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.WriteListener;
+import jakarta.servlet.http.WebConnection;
 
 /**
  * {@link org.glassfish.tyrus.spi.Writer} implementation used in Servlet integration.
@@ -36,7 +37,7 @@ import org.glassfish.tyrus.spi.Writer;
  */
 class TyrusServletWriter extends Writer implements WriteListener {
 
-    private final TyrusHttpUpgradeHandler tyrusHttpUpgradeHandler;
+    private final WebConnection webConnection;
     private final Deque<QueuedFrame> queue = new LinkedList<QueuedFrame>();
 
     private static final Logger LOGGER = Logger.getLogger(TyrusServletWriter.class.getName());
@@ -66,8 +67,8 @@ class TyrusServletWriter extends Writer implements WriteListener {
      *
      * @param tyrusHttpUpgradeHandler encapsulated {@link TyrusHttpUpgradeHandler} instance.
      */
-    public TyrusServletWriter(TyrusHttpUpgradeHandler tyrusHttpUpgradeHandler) {
-        this.tyrusHttpUpgradeHandler = tyrusHttpUpgradeHandler;
+    public TyrusServletWriter(WebConnection webConnection) {
+        this.webConnection = webConnection;
     }
 
     @Override
@@ -103,7 +104,7 @@ class TyrusServletWriter extends Writer implements WriteListener {
         // first write
         if (servletOutputStream == null) {
             try {
-                servletOutputStream = tyrusHttpUpgradeHandler.getWebConnection().getOutputStream();
+                servletOutputStream = webConnection.getOutputStream();
             } catch (IOException e) {
                 LOGGER.log(Level.CONFIG, "ServletOutputStream cannot be obtained", e);
                 completionHandler.failed(e);
@@ -156,7 +157,7 @@ class TyrusServletWriter extends Writer implements WriteListener {
     @Override
     public void close() {
         try {
-            tyrusHttpUpgradeHandler.getWebConnection().close();
+            webConnection.close();
         } catch (Exception e) {
             // do nothing.
         }

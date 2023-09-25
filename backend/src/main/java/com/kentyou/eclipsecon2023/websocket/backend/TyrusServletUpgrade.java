@@ -31,14 +31,12 @@ import org.glassfish.tyrus.core.TyrusWebSocketEngine;
 import org.glassfish.tyrus.core.Utils;
 import org.glassfish.tyrus.spi.UpgradeResponse;
 import org.glassfish.tyrus.spi.WebSocketEngine;
-import org.glassfish.tyrus.spi.Writer;
 
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import jakarta.servlet.http.WebConnection;
 import jakarta.websocket.server.HandshakeRequest;
 import jakarta.websocket.server.ServerContainer;
 
@@ -60,60 +58,6 @@ public class TyrusServletUpgrade {
 
     TyrusServletUpgrade(TyrusWebSocketEngine engine) {
         this.engine = engine;
-    }
-
-    private static class TyrusHttpUpgradeHandlerProxy extends TyrusHttpUpgradeHandler {
-
-        private TyrusHttpUpgradeHandler handler;
-
-        @Override
-        public void init(WebConnection wc) {
-            handler.init(wc);
-        }
-
-        @Override
-        public void onDataAvailable() {
-            handler.onDataAvailable();
-        }
-
-        @Override
-        public void onAllDataRead() {
-            handler.onAllDataRead();
-        }
-
-        @Override
-        public void onError(Throwable t) {
-            handler.onError(t);
-        }
-
-        @Override
-        public void destroy() {
-            handler.destroy();
-        }
-
-        @Override
-        public void sessionDestroyed() {
-            handler.sessionDestroyed();
-        }
-
-        @Override
-        public void preInit(WebSocketEngine.UpgradeInfo upgradeInfo, Writer writer, boolean authenticated) {
-            handler.preInit(upgradeInfo, writer, authenticated);
-        }
-
-        @Override
-        public void setIncomingBufferSize(int incomingBufferSize) {
-            handler.setIncomingBufferSize(incomingBufferSize);
-        }
-
-        @Override
-        WebConnection getWebConnection() {
-            return handler.getWebConnection();
-        }
-
-        void setHandler(TyrusHttpUpgradeHandler handler) {
-            this.handler = handler;
-        }
     }
 
     void init(ServletContext servletContext) throws ServletException {
@@ -148,13 +92,7 @@ public class TyrusServletUpgrade {
         if (header != null) {
             LOGGER.fine("Setting up WebSocket protocol handler");
 
-            // TODO: check why they use a proxy
-            final TyrusHttpUpgradeHandlerProxy handler = new TyrusHttpUpgradeHandlerProxy();
-
             final Map<String, String[]> paramMap = httpServletRequest.getParameterMap();
-
-            // TODO: replace need for handler by direct access to connection
-            final TyrusServletWriter webSocketConnection = new TyrusServletWriter(handler);
 
             final RequestContext requestContext = RequestContext.Builder.create()
                     .requestURI(URI.create(httpServletRequest.getRequestURI()))
@@ -202,21 +140,27 @@ public class TyrusServletUpgrade {
                 return false;
             case SUCCESS:
                 LOGGER.fine("Upgrading Servlet request");
-
-                handler.preInit(upgradeInfo, webSocketConnection, httpServletRequest.getUserPrincipal() != null);
-
+                // Setup status & header for Jetty to accept the upgrade operation
                 httpServletResponse.setStatus(tyrusUpgradeResponse.getStatus());
                 for (Map.Entry<String, List<String>> entry : tyrusUpgradeResponse.getHeaders().entrySet()) {
                     httpServletResponse.addHeader(entry.getKey(), Utils.getHeaderFromList(entry.getValue()));
                 }
 
-                // FIXME
-                handler.setHandler(httpServletRequest.upgrade(TyrusHttpUpgradeHandler.class));
+                // Let Jetty create the handler instance and call init
+                // Here, the init() doesn't upgrade the connection as the instance isn't configured yet
+                final TyrusHttpUpgradeHandler handler = httpServletRequest.upgrade(TyrusHttpUpgradeHandler.class);
+
+                // Configure the instance
+                handler.setAuthenticated(httpServletRequest.getUserPrincipal() != null);
+
                 final String frameBufferSize = httpServletRequest.getServletContext()
                         .getInitParameter(TyrusHttpUpgradeHandler.FRAME_BUFFER_SIZE);
                 if (frameBufferSize != null) {
                     handler.setIncomingBufferSize(Integer.parseInt(frameBufferSize));
                 }
+
+                // Upgrade the connection for real
+                handler.upgradeConnection(upgradeInfo);
 
                 if (requestContext.getHttpSession() != null) {
                     sessionToHandler.put((HttpSession) requestContext.getHttpSession(), handler);
