@@ -88,18 +88,16 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
         if (endpoint.getClass().getAnnotation(ServerEndpoint.class) != null) {
             final Class<?> clazz = endpoint.getClass();
             if (!webSocketEndpoints.contains(clazz)) {
-                System.out.println("Adding server endpoint - " + endpoint.getClass().getName());
+                logger.debug("Adding server endpoint - {}", endpoint.getClass().getName());
                 webSocketEndpoints.add(clazz);
             }
         } else {
-            System.out.println("No annotation found on " + endpoint.getClass().getName());
             logger.warn("Found a websocket service that isn't annotated. Ignoring it.");
         }
     }
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-        // TODO Auto-generated method stub
         Filter.super.init(filterConfig);
 
         final ServletContext context = filterConfig.getServletContext();
@@ -133,22 +131,20 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        System.out.println("DO FILTER");
-
         final HttpServletRequest httpServletRequest = (HttpServletRequest) request;
         final HttpServletResponse httpServletResponse = (HttpServletResponse) response;
         try {
-            httpServletResponse.setStatus(101);
-        boolean success = serverContainer.getServletUpgrade().upgrade(httpServletRequest, httpServletResponse);
+            boolean success = serverContainer.getServletUpgrade().upgrade(httpServletRequest, httpServletResponse);
 
-        System.out.println("DO FILTER - success=" + success);
-
-        if (!success && chain != null) {
-            chain.doFilter(request, response);
-        }
+            if (!success && chain != null) {
+                chain.doFilter(request, response);
+            }
         } catch (Throwable e) {
             httpServletResponse.setStatus(500);
-            e.printStackTrace();
+            logger.error("Error upgrading WebSocket", e);
+            if (chain != null) {
+                chain.doFilter(request, response);
+            }
         }
     }
 }
