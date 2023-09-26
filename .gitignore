@@ -8,6 +8,7 @@ target
 .project
 .gradle
 bin
+generated
 
 .DS_Store
 

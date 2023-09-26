@@ -8,7 +8,7 @@
   SPDX-License-Identifier: EPL-2.0
 
   Contributors:
-      Tim Ward (Kentyou) - Initial implementation
+      Thomas Calmant (Kentyou) - Initial implementation
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -20,9 +20,13 @@
     <version>0.0.1-SNAPSHOT</version>
     <relativePath>../parent</relativePath>
   </parent>
-  <artifactId>backend</artifactId>
-
+  <artifactId>provider</artifactId>
   <dependencies>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>backend</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.osgi</groupId>
       <artifactId>osgi.core</artifactId>
@@ -48,18 +52,6 @@
       <artifactId>slf4j-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>jakarta.ws.rs</groupId>
-      <artifactId>jakarta.ws.rs-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>jakarta.inject</groupId>
-      <artifactId>jakarta.inject-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>jakarta.servlet</groupId>
-      <artifactId>jakarta.servlet-api</artifactId>
-    </dependency>
-    <dependency>
       <groupId>jakarta.websocket</groupId>
       <artifactId>jakarta.websocket-api</artifactId>
     </dependency>
@@ -67,27 +59,26 @@
       <groupId>jakarta.websocket</groupId>
       <artifactId>jakarta.websocket-client-api</artifactId>
     </dependency>
+    <!-- Gogo Shell -->
     <dependency>
-      <groupId>org.eclipse.jetty.websocket</groupId>
-      <artifactId>websocket-jetty-server</artifactId>
+      <groupId>org.apache.felix</groupId>
+      <artifactId>org.apache.felix.gogo.shell</artifactId>
+      <version>1.1.4</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.jetty.websocket</groupId>
-      <artifactId>websocket-jetty-client</artifactId>
-    </dependency>
-    
-    <dependency>
-      <groupId>org.glassfish.tyrus</groupId>
-      <artifactId>tyrus-core</artifactId>
-      <version>${tyrus.version}</version>
+      <groupId>org.apache.felix</groupId>
+      <artifactId>org.apache.felix.gogo.runtime</artifactId>
+      <version>1.1.4</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.glassfish.tyrus</groupId>
-      <artifactId>tyrus-container-servlet</artifactId>
-      <version>${tyrus.version}</version>
+      <groupId>org.apache.felix</groupId>
+      <artifactId>org.apache.felix.gogo.command</artifactId>
+      <version>1.1.2</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
-
   <build>
     <plugins>
       <plugin>
@@ -100,7 +91,16 @@
       </plugin>
       <plugin>
         <groupId>biz.aQute.bnd</groupId>
-        <artifactId>bnd-testing-maven-plugin</artifactId>
+        <artifactId>bnd-run-maven-plugin</artifactId>
+        <configuration>
+          <scopes>
+            <scope>compile</scope>
+            <scope>runtime</scope>
+            <scope>test</scope>
+          </scopes>
+          <includeDependencyManagement>true</includeDependencyManagement>
+          <bndrun>demo-run.bndrun</bndrun>
+        </configuration>
       </plugin>
     </plugins>
   </build>
