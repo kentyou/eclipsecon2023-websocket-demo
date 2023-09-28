@@ -45,6 +45,12 @@ public class WSServerContainer extends TyrusServerContainer {
     }
 
     @Override
+    public void stop() {
+        tyrusServletUpgrade.stop();
+        super.stop();
+    }
+
+    @Override
     public void register(Class<?> endpointClass) throws DeploymentException {
         engine.register(endpointClass, contextPath);
     }

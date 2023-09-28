@@ -204,9 +204,13 @@ public class TyrusServletUpgrade {
         return initParams;
     }
 
-    public void destroy() {
+    public void stop() {
         sessionToHandler.forEach((session, upgradeHandler) -> upgradeHandler.destroy());
         sessionToHandler.clear();
+    }
+
+    public void destroy() {
+        stop();
 
         serverContainer.stop();
         engine.getApplicationEventListener().onApplicationDestroyed();
