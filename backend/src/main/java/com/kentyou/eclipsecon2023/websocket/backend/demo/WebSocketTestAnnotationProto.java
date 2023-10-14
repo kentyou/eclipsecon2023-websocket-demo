@@ -20,13 +20,15 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.ServiceScope;
 
-import jakarta.websocket.Endpoint;
-import jakarta.websocket.EndpointConfig;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
+import jakarta.websocket.server.ServerEndpoint;
 
-@Component(service = Endpoint.class, scope = ServiceScope.PROTOTYPE, property = { "websocket.server=true",
-		"websocket.path=/ws/test-endpoint-proto", "test=true" })
-public class WebSocketTestEndpointProto extends Endpoint {
+@Component(service = WebSocketTestAnnotationProto.class, scope = ServiceScope.PROTOTYPE, property = {
+		"websocket.server=true", "websocket.path=/ws/test-annotation-proto", "test=true" })
+@ServerEndpoint("/ws/test-annotation-proto")
+public class WebSocketTestAnnotationProto {
 
 	private static AtomicInteger nextId = new AtomicInteger();
 
@@ -36,16 +38,17 @@ public class WebSocketTestEndpointProto extends Endpoint {
 
 	@Activate
 	void activate() {
-		id = "endpoint-" + nextId.incrementAndGet();
-		System.out.println("WebSocket prototype endpoint started - ID=" + id);
+		id = "annotation-" + nextId.incrementAndGet();
+		System.out.println("WebSocket prototype annotation started - ID=" + id);
 	}
 
 	@Deactivate
 	void deactivate() {
-		System.out.println("WebSocket prototype endpoint stopped - ID=" + id);
+		System.out.println("WebSocket prototype annotation stopped - ID=" + id);
 	}
 
-	private void onMessage(String message, Session session) {
+	@OnMessage
+	public void onMessage(String message, Session session) {
 		final String toReturn;
 		if ("$".equals(message)) {
 			toReturn = "Last message you sent to " + id + " was: " + lastMessage;
@@ -54,7 +57,7 @@ public class WebSocketTestEndpointProto extends Endpoint {
 			lastMessage = message;
 		}
 
-		System.out.println("endpoint-SEND: " + toReturn);
+		System.out.println("Annot-SEND: " + toReturn);
 
 		try {
 			session.getBasicRemote().sendText(toReturn);
@@ -63,9 +66,8 @@ public class WebSocketTestEndpointProto extends Endpoint {
 		}
 	}
 
-	@Override
-	public void onOpen(Session session, EndpointConfig config) {
-		session.addMessageHandler(String.class, (s) -> onMessage(s, session));
+	@OnOpen
+	public void onConnect(Session session) {
 		try {
 			session.getBasicRemote().sendText("Hello from " + id);
 		} catch (IOException e) {

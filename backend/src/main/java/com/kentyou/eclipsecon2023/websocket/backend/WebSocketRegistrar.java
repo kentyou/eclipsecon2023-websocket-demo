@@ -13,13 +13,12 @@
 package com.kentyou.eclipsecon2023.websocket.backend;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
+import org.glassfish.tyrus.core.ComponentProviderService;
 import org.glassfish.tyrus.core.TyrusServerEndpointConfigurator;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.AnyService;
@@ -68,25 +67,32 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
 
 	private WSServerContainer serverContainer;
 
-	/**
-	 * Annotated endpoints
-	 */
-	private List<Class<?>> webSocketEndpoints = new ArrayList<>();
+	private static ComponentProviderService componentProviderService;
+	static {
+		// Create the component provider with the right class loader
+		try {
+			componentProviderService = runWithClassLoader(() -> {
+				return ComponentProviderService.create();
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 
 	/**
-	 * Endpoints extending {@link Endpoint}
+	 * Registered endpoints (service ID -&gt; config)
 	 */
-	private Map<Class<?>, ServerEndpointConfig> webSocketConfigs = new HashMap<>();
+	private Map<Long, ServerEndpointConfig> webSocketConfigs = new HashMap<>();
 
 	@Activate
-	void activate() {
+	void activate() throws Exception {
 		// TODO Read configuration
 	}
 
 	@Deactivate
 	void stop() {
 		// TODO Close all web sockets
-		webSocketEndpoints.clear();
+		webSocketConfigs.clear();
 
 		if (serverContainer != null) {
 			serverContainer.stop();
@@ -97,35 +103,45 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
 	/**
 	 * New websocket service registered
 	 */
-	@Reference(service = AnyService.class, target = "(&(test=true)(websocket.server=*))", cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY)
+	@Reference(service = AnyService.class, target = "(&(websocket.server=*))", cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.STATIC, policyOption = ReferencePolicyOption.GREEDY)
 	void addServerEndpoint(final Object endpoint, final Map<String, Object> properties) {
-		if (endpoint.getClass().getAnnotation(ServerEndpoint.class) != null) {
+		final Long svcId = (Long) properties.get(Constants.SERVICE_ID);
+		if (webSocketConfigs.containsKey(svcId)) {
+			System.err.println("Service already known: " + svcId + " / " + endpoint.getClass());
+			return;
+		}
+
+		final Class<?> proxyClass;
+		final String path;
+
+		final ServerEndpoint annotation = endpoint.getClass().getAnnotation(ServerEndpoint.class);
+		if (annotation != null) {
 			// Got an annotated class
-			final Class<?> clazz = endpoint.getClass();
-			if (!webSocketEndpoints.contains(clazz)) {
-				webSocketEndpoints.add(clazz);
-			}
+			proxyClass = ComponentAnnotationProxyClass.class;
+			path = annotation.value();
 		} else if (Endpoint.class.isAssignableFrom(endpoint.getClass()) && properties.get("websocket.path") != null) {
 			// Got an endpoint class
-			final Class<?> clazz = ComponentEndpointProxyClass.class;
-			if (!webSocketConfigs.containsKey(clazz)) {
-				webSocketConfigs.put(clazz, makeProxyConfig(clazz, properties.get("websocket.path").toString(),
-						(Long) properties.get(Constants.SERVICE_ID)));
+			proxyClass = ComponentEndpointProxyClass.class;
+			final Object rawPath = properties.get("websocket.path");
+			if (rawPath == null) {
+				System.out.println("ERROR: no path given for endpoint " + endpoint.getClass() + " / svc=" + svcId);
+				return;
 			}
+
+			path = properties.get("websocket.path").toString();
 		} else {
-			logger.warn("Found a websocket service that isn't annotated. Ignoring it.");
+			logger.warn("Found a websocket service that isn't annotated. Ignoring " + endpoint.getClass().getName());
+			return;
 		}
+
+		webSocketConfigs.put(svcId, makeProxyConfig(proxyClass, path, svcId));
 	}
 
-	void removeServerEndpoint(final Object endpoint) {
-		if (endpoint.getClass().getAnnotation(ServerEndpoint.class) != null) {
-			final Class<?> clazz = endpoint.getClass();
-			if (webSocketEndpoints.contains(clazz)) {
-				webSocketEndpoints.remove(clazz);
-			} else if (webSocketConfigs.containsKey(clazz)) {
-				webSocketConfigs.remove(clazz);
-			}
-		}
+	void removeServerEndpoint(final Object endpoint, final Map<String, Object> properties) {
+		final Long svcId = (Long) properties.get(Constants.SERVICE_ID);
+
+		// TODO: unregister from Tyrus
+		webSocketConfigs.remove(svcId);
 	}
 
 	ServerEndpointConfig makeConfig(final Class<?> clazz, final String path) {
@@ -138,6 +154,7 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
 		final Map<String, Object> userProperties = config.getUserProperties();
 		userProperties.put("osgi.ws.bundle.context", Activator.getContext());
 		userProperties.put("osgi.ws.svc.id", svcId);
+		userProperties.put("osgi.ws.componentProvider", componentProviderService);
 		return config;
 	}
 
@@ -148,10 +165,8 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
 		final ServletContext context = filterConfig.getServletContext();
 		serverContainer = new WSServerContainer(context.getContextPath());
 
-		System.out.println("*** Init with annotated endpoint classes: "
-				+ webSocketEndpoints.stream().map(c -> c.getSimpleName()).collect(Collectors.joining(", "))
-				+ "... and with endpoint classes: "
-				+ webSocketConfigs.keySet().stream().map(c -> c.getSimpleName()).collect(Collectors.joining(", ")));
+		System.out.println("*** Init with endpoints: "
+				+ webSocketConfigs.values().stream().map(c -> c.getPath()).collect(Collectors.joining(", ")));
 		registerClasses();
 
 		try {
@@ -164,7 +179,7 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
 		context.setAttribute(ServerContainer.class.getName(), serverContainer);
 	}
 
-	private <T> T runWithClassLoader(Callable<T> r) throws Exception {
+	private static <T> T runWithClassLoader(Callable<T> r) throws Exception {
 		final ClassLoader old = Thread.currentThread().getContextClassLoader();
 		try {
 			Thread.currentThread().setContextClassLoader(TyrusServerEndpointConfigurator.class.getClassLoader());
@@ -177,15 +192,6 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
 	private void registerClasses() {
 		try {
 			runWithClassLoader(() -> {
-				for (final Class<?> clazz : webSocketEndpoints) {
-					try {
-						serverContainer.register(clazz);
-					} catch (DeploymentException e) {
-						logger.error("Error registering WebSocket server annotated class {}: {}", clazz.getName(),
-								e.getMessage(), e);
-					}
-				}
-
 				for (final ServerEndpointConfig config : webSocketConfigs.values()) {
 					try {
 						serverContainer.register(config);
