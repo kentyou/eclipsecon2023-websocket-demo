@@ -85,8 +85,14 @@ public class ComponentAnnotationProxyClass extends Endpoint {
 
 		svcRef = references[0];
 		final Object instance = context.getServiceObjects(svcRef).getService();
-		handler = AnnotatedEndpoint.fromInstance(instance, componentProvider, true, incomingBufferSize,
-				new ErrorCollector());
+		try {
+			handler = WebSocketRegistrar.runWithClassLoader(() -> {
+				return AnnotatedEndpoint.fromInstance(instance, componentProvider, true, incomingBufferSize,
+						new ErrorCollector());
+			});
+		} catch (Exception e) {
+			throw new RuntimeException("Error analyzing annotated endpoint", e);
+		}
 
 		// Handle onOpen on handler side
 		handler.onOpen(session, config);
@@ -115,6 +121,7 @@ public class ComponentAnnotationProxyClass extends Endpoint {
 		} else {
 			// No handler: close the session
 			try {
+				session.getBasicRemote().sendText("ERROR: " + thr.getMessage());
 				session.close(new CloseReason(CloseReason.CloseCodes.UNEXPECTED_CONDITION, thr.getMessage()));
 			} catch (IOException e) {
 				System.err.println("Error closing session");

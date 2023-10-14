@@ -22,9 +22,7 @@ import org.glassfish.tyrus.core.ComponentProviderService;
 import org.glassfish.tyrus.core.TyrusServerEndpointConfigurator;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.AnyService;
-import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
-import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
@@ -67,37 +65,17 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
 
 	private WSServerContainer serverContainer;
 
-	private static ComponentProviderService componentProviderService;
-	static {
-		// Create the component provider with the right class loader
-		try {
-			componentProviderService = runWithClassLoader(() -> {
-				return ComponentProviderService.create();
-			});
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+	private ComponentProviderService componentProviderService;
 
 	/**
 	 * Registered endpoints (service ID -&gt; config)
 	 */
 	private Map<Long, ServerEndpointConfig> webSocketConfigs = new HashMap<>();
 
-	@Activate
-	void activate() throws Exception {
-		// TODO Read configuration
-	}
-
-	@Deactivate
-	void stop() {
-		// TODO Close all web sockets
-		webSocketConfigs.clear();
-
-		if (serverContainer != null) {
-			serverContainer.stop();
-			serverContainer = null;
-		}
+	public WebSocketRegistrar() throws Exception {
+		componentProviderService = runWithClassLoader(() -> {
+			return ComponentProviderService.create();
+		});
 	}
 
 	/**
@@ -179,7 +157,7 @@ public class WebSocketRegistrar extends HttpServlet implements Filter {
 		context.setAttribute(ServerContainer.class.getName(), serverContainer);
 	}
 
-	private static <T> T runWithClassLoader(Callable<T> r) throws Exception {
+	static <T> T runWithClassLoader(Callable<T> r) throws Exception {
 		final ClassLoader old = Thread.currentThread().getContextClassLoader();
 		try {
 			Thread.currentThread().setContextClassLoader(TyrusServerEndpointConfigurator.class.getClassLoader());
