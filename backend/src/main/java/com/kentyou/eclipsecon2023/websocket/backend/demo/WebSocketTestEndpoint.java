@@ -10,7 +10,7 @@
 * Contributors:
 *   Thomas Calmant (Kentyou) - initial implementation
 **********************************************************************/
-package com.kentyou.eclipsecon2023.websocket.backend;
+package com.kentyou.eclipsecon2023.websocket.backend.demo;
 
 import java.io.IOException;
 
