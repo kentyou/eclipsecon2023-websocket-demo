@@ -49,241 +49,241 @@ import jakarta.websocket.server.ServerEndpoint;
 @WithConfiguration(pid = "org.apache.felix.http", location = "?", properties = @Property(key = "org.osgi.service.http.port", value = "14001"))
 public class WebSocketIntegrationTest {
 
-    @InjectBundleContext
-    BundleContext bundleContext;
+	@InjectBundleContext
+	BundleContext bundleContext;
 
-    /**
-     * Utility class to auto-close a web socket client
-     */
-    class WSClient implements AutoCloseable {
-        WebSocketClient ws;
+	/**
+	 * Utility class to auto-close a web socket client
+	 */
+	class WSClient implements AutoCloseable {
+		WebSocketClient ws;
 
-        public WSClient() throws Exception {
-            ws = new WebSocketClient();
-            ws.start();
-        }
+		public WSClient() throws Exception {
+			ws = new WebSocketClient();
+			ws.start();
+		}
 
-        @Override
-        public void close() throws Exception {
-            ws.stop();
-            ws.destroy();
-        }
-    }
+		@Override
+		public void close() throws Exception {
+			ws.stop();
+			ws.destroy();
+		}
+	}
 
-    @Test
-    void testEchoAnnotations() throws Exception {
-        final BlockingArrayQueue<String> queue = new BlockingArrayQueue<>(16);
-        final AtomicReference<Session> session = new AtomicReference<>();
-        final CountDownLatch barrier = new CountDownLatch(1);
+	@Test
+	void testEchoAnnotations() throws Exception {
+		final BlockingArrayQueue<String> queue = new BlockingArrayQueue<>(16);
+		final AtomicReference<Session> session = new AtomicReference<>();
+		final CountDownLatch barrier = new CountDownLatch(1);
 
-        final WSHandler handler = new WSHandler();
-        handler.onConnect = (s) -> {
-            session.set(s);
-            barrier.countDown();
-        };
-        handler.onError = (s, e) -> fail(e);
-        handler.onMessage = (s, m) -> queue.offer(m);
+		final WSHandler handler = new WSHandler();
+		handler.onConnect = (s) -> {
+			session.set(s);
+			barrier.countDown();
+		};
+		handler.onError = (s, e) -> fail(e);
+		handler.onMessage = (s, m) -> queue.offer(m);
 
-        try (WSClient wsClient = new WSClient()) {
-            WebSocketClient ws = wsClient.ws;
-            ws.connect(handler, new URI("ws://localhost:14001/ws/test-annotation"));
-            assertTrue(barrier.await(1, TimeUnit.SECONDS));
+		try (WSClient wsClient = new WSClient()) {
+			WebSocketClient ws = wsClient.ws;
+			ws.connect(handler, new URI("ws://localhost:14001/ws/test-annotation"));
+			assertTrue(barrier.await(1, TimeUnit.SECONDS));
 
-            final String text = "Hello, World!";
-            session.get().getRemote().sendString(text);
-            final String result = queue.poll(1, TimeUnit.SECONDS);
-            assertNotNull(result);
-            assertEquals("Echo: " + text, result);
-        }
-    }
+			final String text = "Hello, World!";
+			session.get().getRemote().sendString(text);
+			final String result = queue.poll(1, TimeUnit.SECONDS);
+			assertNotNull(result);
+			assertEquals("Echo: " + text, result);
+		}
+	}
 
-    @Test
-    void testEchoEndpoint() throws Exception {
-        final BlockingArrayQueue<String> queue = new BlockingArrayQueue<>(16);
-        final AtomicReference<Session> session = new AtomicReference<>();
-        final CountDownLatch barrier = new CountDownLatch(1);
+	@Test
+	void testEchoEndpoint() throws Exception {
+		final BlockingArrayQueue<String> queue = new BlockingArrayQueue<>(16);
+		final AtomicReference<Session> session = new AtomicReference<>();
+		final CountDownLatch barrier = new CountDownLatch(1);
 
-        final WSHandler handler = new WSHandler();
-        handler.onConnect = (s) -> {
-            session.set(s);
-            barrier.countDown();
-        };
-        handler.onError = (s, e) -> fail(e);
-        handler.onMessage = (s, m) -> queue.offer(m);
+		final WSHandler handler = new WSHandler();
+		handler.onConnect = (s) -> {
+			session.set(s);
+			barrier.countDown();
+		};
+		handler.onError = (s, e) -> fail(e);
+		handler.onMessage = (s, m) -> queue.offer(m);
 
-        try (WSClient wsClient = new WSClient()) {
-            WebSocketClient ws = wsClient.ws;
-            ws.connect(handler, new URI("ws://localhost:14001/ws/test-endpoint"));
-            assertTrue(barrier.await(1, TimeUnit.SECONDS));
+		try (WSClient wsClient = new WSClient()) {
+			WebSocketClient ws = wsClient.ws;
+			ws.connect(handler, new URI("ws://localhost:14001/ws/test-endpoint"));
+			assertTrue(barrier.await(1, TimeUnit.SECONDS));
 
-            final String text = "Hello, World!";
-            session.get().getRemote().sendString(text);
-            final String result = queue.poll(1, TimeUnit.SECONDS);
-            assertNotNull(result);
-            assertEquals("Echo2: " + text, result);
-        }
-    }
+			final String text = "Hello, World!";
+			session.get().getRemote().sendString(text);
+			final String result = queue.poll(1, TimeUnit.SECONDS);
+			assertNotNull(result);
+			assertEquals("Echo2: " + text, result);
+		}
+	}
 
-    /**
-     * This class needs to be public static to be usable
-     */
-    @ServerEndpoint("/ws/answer")
-    public static class TestServiceAnnotation {
-        @OnMessage
-        public void onMessage(String message, jakarta.websocket.Session s) throws Exception {
-            s.getBasicRemote().sendText("42");
-        }
-    }
+	/**
+	 * This class needs to be public static to be usable
+	 */
+	@ServerEndpoint("/ws/answer")
+	public static class TestServiceAnnotation {
+		@OnMessage
+		public void onMessage(String message, jakarta.websocket.Session s) throws Exception {
+			s.getBasicRemote().sendText("42");
+		}
+	}
 
-    @Test
-    void testRegistration() throws Exception {
+	@Test
+	void testRegistration() throws Exception {
 
-        final String endPoint = "/ws/answer";
+		final String endPoint = "/ws/answer";
 
-        final BlockingArrayQueue<String> queue = new BlockingArrayQueue<>(16);
-        final AtomicReference<Session> session = new AtomicReference<>();
+		final BlockingArrayQueue<String> queue = new BlockingArrayQueue<>(16);
+		final AtomicReference<Session> session = new AtomicReference<>();
 
-        final WSHandler handler = new WSHandler();
-        handler.onError = (s, e) -> {
-            e.printStackTrace();
-            fail(e);
-        };
-        handler.onMessage = (s, m) -> queue.offer(m);
+		final WSHandler handler = new WSHandler();
+		handler.onError = (s, e) -> {
+			e.printStackTrace();
+			fail(e);
+		};
+		handler.onMessage = (s, m) -> queue.offer(m);
 
-        // Before service
-        final CountDownLatch barrierBefore = new CountDownLatch(1);
-        handler.onConnect = (s) -> {
-            session.set(s);
-            barrierBefore.countDown();
-        };
-        try (WSClient wsClient = new WSClient()) {
-            WebSocketClient ws = wsClient.ws;
-            ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
-            // Connection should fail
-            assertFalse(barrierBefore.await(1, TimeUnit.SECONDS));
-        }
+		// Before service
+		final CountDownLatch barrierBefore = new CountDownLatch(1);
+		handler.onConnect = (s) -> {
+			session.set(s);
+			barrierBefore.countDown();
+		};
+		try (WSClient wsClient = new WSClient()) {
+			WebSocketClient ws = wsClient.ws;
+			ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
+			// Connection should fail
+			assertFalse(barrierBefore.await(1, TimeUnit.SECONDS));
+		}
 
-        // With service
-        final CountDownLatch barrier = new CountDownLatch(1);
-        handler.onConnect = (s) -> {
-            session.set(s);
-            barrier.countDown();
-        };
-        final ServiceRegistration<TestServiceAnnotation> svcReg = bundleContext.registerService(
-                TestServiceAnnotation.class, new TestServiceAnnotation(),
-                new Hashtable<>(Map.of("websocket.server", "true")));
-        try {
-            try (WSClient wsClient = new WSClient()) {
-                WebSocketClient ws = wsClient.ws;
-                ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
-                assertTrue(barrier.await(1, TimeUnit.SECONDS));
+		// With service
+		final CountDownLatch barrier = new CountDownLatch(1);
+		handler.onConnect = (s) -> {
+			session.set(s);
+			barrier.countDown();
+		};
+		final ServiceRegistration<TestServiceAnnotation> svcReg = bundleContext.registerService(
+				TestServiceAnnotation.class, new TestServiceAnnotation(),
+				new Hashtable<>(Map.of("websocket.server", "true")));
+		try {
+			try (WSClient wsClient = new WSClient()) {
+				WebSocketClient ws = wsClient.ws;
+				ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
+				assertTrue(barrier.await(1, TimeUnit.SECONDS));
 
-                session.get().getRemote().sendString("run!");
-                final String result = queue.poll(1, TimeUnit.SECONDS);
-                assertNotNull(result);
-                assertEquals("42", result);
-            }
-        } finally {
-            svcReg.unregister();
-        }
+				session.get().getRemote().sendString("run!");
+				final String result = queue.poll(1, TimeUnit.SECONDS);
+				assertNotNull(result);
+				assertEquals("42", result);
+			}
+		} finally {
+			svcReg.unregister();
+		}
 
-        // After service
-        final CountDownLatch barrierAfter = new CountDownLatch(1);
-        handler.onConnect = (s) -> {
-            session.set(s);
-            barrierAfter.countDown();
-        };
-        try (WSClient wsClient = new WSClient()) {
-            WebSocketClient ws = wsClient.ws;
-            ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
-            // Connection should fail
-            assertFalse(barrierAfter.await(1, TimeUnit.SECONDS));
-        }
-    }
+		// After service
+		final CountDownLatch barrierAfter = new CountDownLatch(1);
+		handler.onConnect = (s) -> {
+			session.set(s);
+			barrierAfter.countDown();
+		};
+		try (WSClient wsClient = new WSClient()) {
+			WebSocketClient ws = wsClient.ws;
+			ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
+			// Connection should fail
+			assertFalse(barrierAfter.await(1, TimeUnit.SECONDS));
+		}
+	}
 
-    /**
-     * This class needs to be public static to be usable
-     */
-    public static class TestServiceEndpoint extends Endpoint {
-        private void onMessage(String message, jakarta.websocket.Session session) {
-            try {
-                session.getBasicRemote().sendText("foobar");
-            } catch (IOException e) {
-                e.printStackTrace();
-                fail(e);
-            }
-        }
+	/**
+	 * This class needs to be public static to be usable
+	 */
+	public static class TestServiceEndpoint extends Endpoint {
+		private void onMessage(String message, jakarta.websocket.Session session) {
+			try {
+				session.getBasicRemote().sendText("foobar");
+			} catch (IOException e) {
+				e.printStackTrace();
+				fail(e);
+			}
+		}
 
-        @Override
-        public void onOpen(jakarta.websocket.Session session, EndpointConfig config) {
-            session.addMessageHandler(String.class, (s) -> onMessage(s, session));
-        }
-    }
+		@Override
+		public void onOpen(jakarta.websocket.Session session, EndpointConfig config) {
+			session.addMessageHandler(String.class, (s) -> onMessage(s, session));
+		}
+	}
 
-    @Test
-    void testEndpointRegistration() throws Exception {
+	@Test
+	void testEndpointRegistration() throws Exception {
 
-        final String endPoint = "/ws/answer-endpoint";
+		final String endPoint = "/ws/answer-endpoint";
 
-        final BlockingArrayQueue<String> queue = new BlockingArrayQueue<>(16);
-        final AtomicReference<Session> session = new AtomicReference<>();
+		final BlockingArrayQueue<String> queue = new BlockingArrayQueue<>(16);
+		final AtomicReference<Session> session = new AtomicReference<>();
 
-        final WSHandler handler = new WSHandler();
-        handler.onError = (s, e) -> {
-            e.printStackTrace();
-            fail(e);
-        };
-        handler.onMessage = (s, m) -> queue.offer(m);
+		final WSHandler handler = new WSHandler();
+		handler.onError = (s, e) -> {
+			e.printStackTrace();
+			fail(e);
+		};
+		handler.onMessage = (s, m) -> queue.offer(m);
 
-        // Before service
-        final CountDownLatch barrierBefore = new CountDownLatch(1);
-        handler.onConnect = (s) -> {
-            session.set(s);
-            barrierBefore.countDown();
-        };
-        try (WSClient wsClient = new WSClient()) {
-            WebSocketClient ws = wsClient.ws;
-            ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
-            // Connection should fail
-            assertFalse(barrierBefore.await(1, TimeUnit.SECONDS));
-        }
+		// Before service
+		final CountDownLatch barrierBefore = new CountDownLatch(1);
+		handler.onConnect = (s) -> {
+			session.set(s);
+			barrierBefore.countDown();
+		};
+		try (WSClient wsClient = new WSClient()) {
+			WebSocketClient ws = wsClient.ws;
+			ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
+			// Connection should fail
+			assertFalse(barrierBefore.await(1, TimeUnit.SECONDS));
+		}
 
-        // With service
-        final CountDownLatch barrier = new CountDownLatch(1);
-        handler.onConnect = (s) -> {
-            session.set(s);
-            barrier.countDown();
-        };
+		// With service
+		final CountDownLatch barrier = new CountDownLatch(1);
+		handler.onConnect = (s) -> {
+			session.set(s);
+			barrier.countDown();
+		};
 
-        final ServiceRegistration<TestServiceEndpoint> svcReg = bundleContext.registerService(TestServiceEndpoint.class,
-                new TestServiceEndpoint(),
-                new Hashtable<String, Object>(Map.of("websocket.server", "true", "websocket.path", endPoint)));
-        try {
-            try (WSClient wsClient = new WSClient()) {
-                WebSocketClient ws = wsClient.ws;
-                ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
-                assertTrue(barrier.await(1, TimeUnit.SECONDS));
+		final ServiceRegistration<Endpoint> svcReg = bundleContext.registerService(Endpoint.class,
+				new TestServiceEndpoint(),
+				new Hashtable<String, Object>(Map.of("websocket.server", "true", "websocket.path", endPoint)));
+		try {
+			try (WSClient wsClient = new WSClient()) {
+				WebSocketClient ws = wsClient.ws;
+				ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
+				assertTrue(barrier.await(1, TimeUnit.SECONDS));
 
-                session.get().getRemote().sendString("run!");
-                final String result = queue.poll(1, TimeUnit.SECONDS);
-                assertNotNull(result);
-                assertEquals("foobar", result);
-            }
-        } finally {
-            svcReg.unregister();
-        }
+				session.get().getRemote().sendString("run!");
+				final String result = queue.poll(1, TimeUnit.SECONDS);
+				assertNotNull(result);
+				assertEquals("foobar", result);
+			}
+		} finally {
+			svcReg.unregister();
+		}
 
-        // After service
-        final CountDownLatch barrierAfter = new CountDownLatch(1);
-        handler.onConnect = (s) -> {
-            session.set(s);
-            barrierAfter.countDown();
-        };
-        try (WSClient wsClient = new WSClient()) {
-            WebSocketClient ws = wsClient.ws;
-            ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
-            // Connection should fail
-            assertFalse(barrierAfter.await(1, TimeUnit.SECONDS));
-        }
-    }
+		// After service
+		final CountDownLatch barrierAfter = new CountDownLatch(1);
+		handler.onConnect = (s) -> {
+			session.set(s);
+			barrierAfter.countDown();
+		};
+		try (WSClient wsClient = new WSClient()) {
+			WebSocketClient ws = wsClient.ws;
+			ws.connect(handler, new URI("ws://localhost:14001" + endPoint));
+			// Connection should fail
+			assertFalse(barrierAfter.await(1, TimeUnit.SECONDS));
+		}
+	}
 }
