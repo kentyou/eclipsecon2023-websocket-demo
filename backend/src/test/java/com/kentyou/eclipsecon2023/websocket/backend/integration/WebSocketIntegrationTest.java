@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.osgi.framework.BundleContext;
@@ -68,6 +69,13 @@ public class WebSocketIntegrationTest {
             ws.stop();
             ws.destroy();
         }
+    }
+
+    @Order(-1)
+    @Test
+    void testLong() throws Exception {
+    	System.out.println("Waiting...");
+    	Thread.sleep(3600*1000);
     }
 
     @Test
