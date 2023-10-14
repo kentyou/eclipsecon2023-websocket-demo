@@ -89,11 +89,16 @@ public class WebSocketIntegrationTest {
 			ws.connect(handler, new URI("ws://localhost:14001/ws/test-annotation"));
 			assertTrue(barrier.await(1, TimeUnit.SECONDS));
 
+			// Get welcome message
+			final String welcome = queue.poll(1, TimeUnit.SECONDS);
+			assertNotNull(welcome);
+			assertTrue(welcome.startsWith("Hello"), welcome + " doesn't start with Hello");
+
 			final String text = "Hello, World!";
 			session.get().getRemote().sendString(text);
 			final String result = queue.poll(1, TimeUnit.SECONDS);
 			assertNotNull(result);
-			assertEquals("Echo: " + text, result);
+			assertTrue(result.contains(text), "Wrong echo");
 		}
 	}
 
@@ -116,11 +121,16 @@ public class WebSocketIntegrationTest {
 			ws.connect(handler, new URI("ws://localhost:14001/ws/test-endpoint"));
 			assertTrue(barrier.await(1, TimeUnit.SECONDS));
 
+			// Get welcome message
+			final String welcome = queue.poll(1, TimeUnit.SECONDS);
+			assertNotNull(welcome);
+			assertTrue(welcome.startsWith("Hello"), welcome + " doesn't start with Hello");
+
 			final String text = "Hello, World!";
 			session.get().getRemote().sendString(text);
 			final String result = queue.poll(1, TimeUnit.SECONDS);
 			assertNotNull(result);
-			assertEquals("Echo2: " + text, result);
+			assertTrue(result.contains(text), "Wrong echo");
 		}
 	}
 

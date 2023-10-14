@@ -38,7 +38,7 @@ public class WebSocketTestAnnotationProto {
 
 	@Activate
 	void activate() {
-		id = "annotation-" + nextId.incrementAndGet();
+		id = "annotation-proto-" + nextId.incrementAndGet();
 		System.out.println("WebSocket prototype annotation started - ID=" + id);
 	}
 
@@ -56,8 +56,6 @@ public class WebSocketTestAnnotationProto {
 			toReturn = "Echo from " + id + ": " + message;
 			lastMessage = message;
 		}
-
-		System.out.println("Annot-SEND: " + toReturn);
 
 		try {
 			session.getBasicRemote().sendText(toReturn);

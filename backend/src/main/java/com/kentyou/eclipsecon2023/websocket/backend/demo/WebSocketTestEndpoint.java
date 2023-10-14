@@ -13,35 +13,60 @@
 package com.kentyou.eclipsecon2023.websocket.backend.demo;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
 
 import jakarta.websocket.Endpoint;
 import jakarta.websocket.EndpointConfig;
 import jakarta.websocket.Session;
 
 @Component(service = Endpoint.class, immediate = true, property = { "websocket.server=true",
-        "websocket.path=/ws/test-endpoint" })
+		"websocket.path=/ws/test-endpoint" })
 public class WebSocketTestEndpoint extends Endpoint {
 
-    @Activate
-    void activate() {
-        System.out.println("WebSocket test started");
-    }
+	private static AtomicInteger nextId = new AtomicInteger();
 
-    private void onMessage(String message, Session session) {
-        System.out.println("Echoing " + message);
-        try {
-            session.getBasicRemote().sendText("Echo2: " + message);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+	private String id;
 
-    @Override
-    public void onOpen(Session session, EndpointConfig config) {
-        System.out.println("ECHO 2 endpoint connection");
-        session.addMessageHandler(String.class, (s) -> onMessage(s, session));
-    }
+	private String lastMessage;
+
+	@Activate
+	void activate() {
+		id = "endpoint-" + nextId.incrementAndGet();
+		System.out.println("WebSocket prototype endpoint started - ID=" + id);
+	}
+
+	@Deactivate
+	void deactivate() {
+		System.out.println("WebSocket prototype endpoint stopped - ID=" + id);
+	}
+
+	private void onMessage(String message, Session session) {
+		final String toReturn;
+		if ("$".equals(message)) {
+			toReturn = "Last message you sent to " + id + " was: " + lastMessage;
+		} else {
+			toReturn = "Echo from " + id + ": " + message;
+			lastMessage = message;
+		}
+
+		try {
+			session.getBasicRemote().sendText(toReturn);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public void onOpen(Session session, EndpointConfig config) {
+		session.addMessageHandler(String.class, (s) -> onMessage(s, session));
+		try {
+			session.getBasicRemote().sendText("Hello from " + id);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 }

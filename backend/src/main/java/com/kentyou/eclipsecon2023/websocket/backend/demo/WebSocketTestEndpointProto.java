@@ -36,7 +36,7 @@ public class WebSocketTestEndpointProto extends Endpoint {
 
 	@Activate
 	void activate() {
-		id = "endpoint-" + nextId.incrementAndGet();
+		id = "endpoint-proto-" + nextId.incrementAndGet();
 		System.out.println("WebSocket prototype endpoint started - ID=" + id);
 	}
 
@@ -53,8 +53,6 @@ public class WebSocketTestEndpointProto extends Endpoint {
 			toReturn = "Echo from " + id + ": " + message;
 			lastMessage = message;
 		}
-
-		System.out.println("endpoint-SEND: " + toReturn);
 
 		try {
 			session.getBasicRemote().sendText(toReturn);
