@@ -75,7 +75,7 @@
       <groupId>org.eclipse.jetty.websocket</groupId>
       <artifactId>websocket-jetty-client</artifactId>
     </dependency>
-    
+
     <dependency>
       <groupId>org.glassfish.tyrus</groupId>
       <artifactId>tyrus-core</artifactId>
