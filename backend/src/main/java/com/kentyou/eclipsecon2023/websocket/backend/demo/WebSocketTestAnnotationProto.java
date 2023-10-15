@@ -26,7 +26,7 @@ import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
 
 @Component(service = WebSocketTestAnnotationProto.class, scope = ServiceScope.PROTOTYPE, property = {
-		"websocket.server=true", "websocket.path=/ws/test-annotation-proto", "test=true" })
+		"websocket.server=true" })
 @ServerEndpoint("/ws/test-annotation-proto")
 public class WebSocketTestAnnotationProto {
 

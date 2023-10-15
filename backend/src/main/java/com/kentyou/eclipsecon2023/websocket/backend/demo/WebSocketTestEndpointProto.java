@@ -25,7 +25,7 @@ import jakarta.websocket.EndpointConfig;
 import jakarta.websocket.Session;
 
 @Component(service = Endpoint.class, scope = ServiceScope.PROTOTYPE, property = { "websocket.server=true",
-		"websocket.path=/ws/test-endpoint-proto", "test=true" })
+		"websocket.path=/ws/test-endpoint-proto" })
 public class WebSocketTestEndpointProto extends Endpoint {
 
 	private static AtomicInteger nextId = new AtomicInteger();
